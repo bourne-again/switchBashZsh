@@ -1,0 +1,21 @@
+If you need to switch between Bash and Zsh (and then perhaps to Bash), you
+might like to use switchBashZsh.
+
+switchBashZsh makes it convenient to switch between these two shells.
+
+In your computer user account, download the package switchBashZsh, and
+then execucute switchBashZsh as a command.
+
+switchBashZsh will create the filesystem hierarchy it needs. Then you
+set up your complete shell environment as you would like it to be in
+future. If you later switch to the other shell (Bash <-> Zsh), then your
+previous shell environment with the previous shell will continue to work
+exactly as it is.
+
+You can even switch to a different computer with a different operating
+system, you will still have the power to have your master shell
+environment being back in action in a jiffy.
+
+If you like switchBashZsh, don't forget to email the author.
+
+Manish Jain <bourne.identity@hotmail.com>

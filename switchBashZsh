@@ -1,0 +1,476 @@
+#!/bin/sh
+
+zksh=false
+editor=vim
+
+b_editor=false
+b_bare=false
+
+die()
+{
+	[ $# -eq 0 ] && exit 1
+
+	[ $# -gt 1 ] && \
+	echo "Error initiated at line $1 :
+	$2" 1>&2 || \
+	echo "$1" 1>&2
+
+	exit 1
+}
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--bare)
+			shift
+			b_bare=true
+		;;
+
+		--editor)
+			shift
+			editor=""
+			[ $# -gt 0 ] || die $LINENO 'Missing filepath: $editor'
+			editor="$1"
+			b_editor=true
+			shift
+		;;
+
+		--help)
+			shift
+			man switchBashZsh
+			exit 0
+		;;
+
+		*)
+			die $LINENO "Invalid arg : $1"
+		;;
+	esac
+done
+
+cd $HOME || die $LINENO '`cd $HOME` failed. Aborting  : - ('
+
+echo 'I shall delete 3 globs under your $HOME :  .bash* .zsh* .shell*'
+echo 'If you are okay with that, press Enter. Else hit Ctrl+C to abort.'
+read dummy
+
+rm -rf .bash* .zsh* .shell*
+
+ok=false
+
+if [ $b_editor = false ]; then
+	while [ $ok = false ]; do
+		echo "I am using $editor as your preferred text editor"
+		echo "Is that okay with you ? (y/n):"
+
+		read answer
+		case "$answer" in
+			y|Y|yes)
+				ok=true
+			;;
+
+			n|N|no)
+				echo "Enter the command to use as editor"
+				read editor
+			;;
+
+			*)
+				die $LINENO 'I could not make any sense of that. Aborting  : - ('
+			;;
+		esac
+	done
+fi
+
+[ -z "$editor" ] && die $LINENO '$editor is null. Aborting  : - ('
+
+echo "Z shell by default begins array indexing at 1."
+echo "Some system programs assume the default behaviour."
+echo "But, if you need, you can change the default below."
+echo "Would you like your Z to begin arrays at 0 (Bash-like) ? (y/n):"
+
+read answer
+case "$answer" in
+	y|Y|yes)
+		zksh=true
+	;;
+
+	n|N|no)
+		zksh=false
+	;;
+
+	*)
+		die $LINENO 'I could not make any sense of that. Aborting  : - ('
+	;;
+esac
+
+set -e
+clear
+mkdir .shell
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF_aliases'
+# This file is meant for implementation-independent aliases.
+# Put OS-specific aliases (eg: ls) in level_2
+
+alias editor="$EDITOR"
+alias p="cd .."
+alias p2="cd ../.."
+alias rf="rm -rf"
+alias e="cd /etc"
+
+#< Above this line is what was pre-packaged. Below is the user section >
+
+EOF_aliases
+else
+cat << 'EOF_aliases_bare'
+# This file is meant for implementation-independent aliases.
+# Put OS-specific aliases (eg: ls) in level_2
+
+EOF_aliases_bare
+fi
+} > .shell/aliases
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF_exports'
+# This file is meant for implementation-independent exports.
+# Put OS-specific exports in level_2
+
+export PATH=$PATH:$HOME/bin
+export DISPLAY=:0
+export EDITOR=$editor
+
+#< Above this line is what was pre-packaged. Below is the user section >
+
+EOF_exports
+else
+cat << 'EOF_exports_bare'
+# This file is meant for implementation-independent exports.
+# Put OS-specific exports in level_2
+
+EOF_exports_bare
+fi
+} > .shell/exports
+
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF_functions'
+# This file is meant for implementation-independent functions.
+# Put OS-specific functions in level_2
+
+#< Above this line is what was pre-packaged. Below is the user section >
+
+EOF_functions
+else
+cat << 'EOF_functions_bare'
+# This file is meant for implementation-independent functions.
+# Put OS-specific functions in level_2
+
+EOF_functions_bare
+fi
+} > .shell/functions
+
+echo > .shell/uponlogin
+echo > .shell/uponlogout
+
+echo '[ -e ~/.shell/level_1.all ] && . ~/.shell/level_1.all' > .shellrc
+echo '[ -e ~/.shell/uponlogin ] && . ~/.shell/uponlogin' >> .shellrc
+
+{
+cat << 'EOF_bash'
+export PS1='`pwd` <<: '
+export HISTFILE="$HOME/.bash_history"
+[ -e ~/.shell/uponlogout ] && ln -sf ~/.shell/uponlogout ~/.bash_logout
+[ -e ~/.shellrc ] && . ~/.shellrc
+EOF_bash
+} > .bashrc
+
+ln .bashrc .bash_profile
+
+> .zshrc
+[ $zksh = true ] && echo "setopt KSH_ARRAYS" >> .zshrc
+
+{
+cat << 'EOF_zsh'
+export PROMPT='%d <<: '
+export HISTFILE="$HOME/.zhistory"
+export HISTSIZE=1000
+export SAVEHIST=$HISTSIZE
+setopt hist_ignore_all_dups
+setopt share_history
+bindkey "\e[1~" beginning-of-line
+bindkey "\e[4~" end-of-line
+bindkey "\e[5~" beginning-of-history
+bindkey "\e[6~" end-of-history
+bindkey "\e[3~" delete-char
+bindkey "\e[2~" quoted-insert
+bindkey "\e[5C" forward-word
+bindkey "\eOc" emacs-forward-word
+bindkey "\e[5D" backward-word
+bindkey "\eOd" emacs-backward-word
+bindkey "\ee[C" forward-word
+bindkey "\ee[D" backward-word
+bindkey "\^H" backward-delete-word
+bindkey "\e[8~" end-of-line
+bindkey "\e[7~" beginning-of-line
+bindkey "\eOH" beginning-of-line
+bindkey "\eOF" end-of-line
+bindkey '^i' expand-or-complete-prefix
+bindkey "\e[H" beginning-of-line
+bindkey "\e[F" end-of-line
+[ -e ~/.shell/uponlogout ] && ln -sf ~/.shell/uponlogout ~/.zlogout
+[ -e ~/.shellrc ] && . ~/.shellrc
+EOF_zsh
+} >> .zshrc
+
+echo "EDITOR=$editor" > .shell/level_1.all
+
+{
+cat << 'EOF1_all'
+echo "$-" | grep -q 'i' || return
+
+# Exported definitions always get processed first :
+[ -f ~/.shell/exports ] && . ~/.shell/exports
+[ -f ~/.shell/aliases ] && . ~/.shell/aliases
+[ -f ~/.shell/functions ] && . ~/.shell/functions
+
+alias editor="$EDITOR"
+alias A="editor ~/.shell/aliases"
+alias AA=". ~/.shell/aliases"
+alias E="editor ~/.shell/exports"
+alias EE=". ~/.shell/exports"
+alias F="editor ~/.shell/functions"
+alias FF=". ~/.shell/functions"
+alias I="editor ~/.shell/uponlogin"
+alias II=". ~/.shell/uponlogin"
+alias O="editor ~/.shell/uponlogout"
+alias OO=". ~/.shell/uponlogout"
+alias L1="editor ~/.shell/level_1.all"
+alias L2="editor ~/.shell/level_2"
+
+# End of level_1 (Unix) global configuration.
+# All stuff below is for level_2, which branches for
+# freebsd / linux / cygwin :
+
+if [ -L ~/.shell/level_2 ]; then
+	for dist in freebsd linux cygwin; do
+		if uname | grep -q -i $dist; then
+			if ! readlink ~/.shell/level_2 | grep -q -i $dist; then
+				if [ -f ~/.shell/level_2.${dist} ]; then
+					cd ~/.shell
+					ln -sf level_2.${dist} level_2
+					1>/dev/null cd -
+				else
+					rm -f ~/.shell/level_2
+				fi
+			fi
+
+			break
+		fi
+	done
+else
+	if ! [ -f ~/.shell/level_2 ]; then
+		dist=`uname | tr '[:upper:]' '[:lower:]' | sed 's|_.*||'`
+
+		if [ -f ~/.shell/level_2.${dist} ]; then
+			cd ~/.shell
+			ln -s level_2.${dist} level_2
+			1>/dev/null cd -
+		fi
+	fi
+fi
+
+[ -e ~/.shell/level_3 ] && rm -f ~/.shell/level_3
+[ -e ~/.shell/level_2 ] && . ~/.shell/level_2
+EOF1_all
+} >> .shell/level_1.all
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF2_freebsd'
+# This file is meant for FreeBSD-specific definitions.
+# Put implementation-independent definitions in the files
+# [$HOME/.shell/]aliases|exports|functions
+
+alias ls="ls -G"
+alias pfind="pkg search"
+alias pin="pkg install"
+alias pls="pkg query %n"
+alias pig="pkg query %n | grep -i"
+
+# Restart your terminal to have changes to this file take effect #
+EOF2_freebsd
+else
+cat << 'EOF2_freebsd_bare'
+# This file is meant for FreeBSD-specific definitions.
+# Put implementation-independent definitions in the files
+# [$HOME/.shell/]aliases|exports|functions
+
+# Restart your terminal to have changes to this file take effect #
+EOF2_freebsd_bare
+fi
+} > .shell/level_2.freebsd
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF2_cygwin'
+# This file is meant for Cygwin-specific definitions.
+# Put implementation-independent definitions in the files
+# [$HOME/.shell/]aliases|exports|functions
+
+alias ls="ls --color=auto"
+
+# Restart your terminal to have changes to this file take effect #
+EOF2_cygwin
+else
+cat << 'EOF2_cygwin_bare'
+# This file is meant for Cygwin-specific definitions.
+# Put implementation-independent definitions in the files
+# [$HOME/.shell/]aliases|exports|functions
+
+# Restart your terminal to have changes to this file take effect #
+EOF2_cygwin_bare
+fi
+} > .shell/level_2.cygwin
+
+{
+cat << 'EOF2_linux'
+# This file is meant for Linux-specific definitions.
+# Put implementation-independent definitions in the files
+# [$HOME/.shell/]aliases|exports|functions
+
+# <distro-independent-definitions>
+alias ls="ls --color=auto"
+alias L3="editor ~/.shell/level_3"
+# </distro-independent-definitions>
+
+# End of distro-independent block.
+# All stuff below is for Level 3, which branches for distro flavours:
+# arch / debian / redhat
+
+flavour=""
+
+if [ -f /etc/arch-release ]; then
+	flavour=arch
+elif [ -f /etc/debian_version ]; then
+	flavour=debian
+elif [ -f /etc/redhat-release ]; then
+	flavour=redhat
+fi
+
+[ -n "$flavour" ] || return
+
+if [ -L ~/.shell/level_3 ]; then
+	if ! readlink ~/.shell/level_3 | grep -q -i $flavour; then
+		if [ -f ~/.shell/level_3.${flavour} ]; then
+			cd ~/.shell
+			ln -sf level_3.${flavour} level_3
+			1>/dev/null cd -
+		else
+			rm -f ~/.shell/level_3
+		fi
+	fi
+else
+	if ! [ -f ~/.shell/level_3 ]; then
+		if [ -f ~/.shell/level_3.${flavour} ]; then
+			cd ~/.shell
+			ln -s level_3.${flavour} level_3
+			1>/dev/null cd -
+		fi
+	fi
+fi
+
+[ -e ~/.shell/level_3 ] && . ~/.shell/level_3
+
+# Restart your terminal to have changes to this file take effect #
+EOF2_linux
+} > .shell/level_2.linux
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF3_arch'
+alias pfind="pacman -Ss"
+alias pin="pacman -S"
+alias pls="pacman --query"
+alias pig="pacman --query | grep -i"
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_arch
+else
+cat << 'EOF3_arch_bare'
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_arch_bare
+fi
+} > .shell/level_3.arch
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF3_debian'
+alias pfind="apt search"
+alias pin="apt install"
+alias pls="apt list --installed"
+alias pig="apt list --installed | grep -i"
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_debian
+else
+cat << 'EOF3_debian_bare'
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_debian_bare
+fi
+} > .shell/level_3.debian
+
+{
+if [ $b_bare = false ]; then
+cat << 'EOF3_redhat'
+alias pfind="yum search"
+alias pin="yum install"
+alias pls="yum list installed"
+alias pig="yum list installed | grep -i"
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_redhat
+else
+cat << 'EOF3_redhat_bare'
+
+# Restart your terminal to have changes to this file take effect #
+EOF3_redhat_bare
+fi
+} > .shell/level_3.redhat
+
+set +e
+
+{
+cat << 'EOF_final'
+I have created the following switchBashZsh-management aliases
+(under $HOME/.shell/level_1.all) :
+
+alias A="editor ~/.shell/aliases"
+alias AA=". ~/.shell/aliases"
+alias E="editor ~/.shell/exports"
+alias EE=". ~/.shell/exports"
+alias F="editor ~/.shell/functions"
+alias FF=". ~/.shell/functions"
+alias I="editor ~/.shell/uponlogin"
+alias II=". ~/.shell/uponlogin"
+alias O="editor ~/.shell/uponlogout"
+alias OO=". ~/.shell/uponlogout"
+alias L1="editor ~/.shell/level_1"
+alias L2="editor ~/.shell/level_2"
+
+Linux boxes have an extra alias (under $HOME/.shell/level_2.linux) :
+
+alias L3="editor ~/.shell/level_3"
+
+If your installation was not bare, some sample goodies would also
+be available in [~/.shell/] aliases|exports|functions
+
+switchBashZsh shell initialization layout created successfully.
+To have it take effect, logout and login again (or restart terminal).
+This complete message has been saved as $HOME/switchBashZsh-msg.txt
+EOF_final
+} | tee switchBashZsh-msg.txt
+
+exit 0

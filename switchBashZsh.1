@@ -1,0 +1,167 @@
+.TH man 1 "20 September, 2020" "1.0" "switchBashZsh man page"
+
+.SH NAME
+switchBashZsh \- Portable shell switching between Bash and Zsh
+
+.SH SYNOPSIS
+switchBashZsh \- setup a portable shell environment that you can reuse
+across Bash/Zsh and across multiple operating systems:
+(FreeBSD/Linux/Cygwin)
+
+.SH DESCRIPTION
+switchBashZsh is a convenient way of setting up and then reusing your
+master shell environment when you work with Bash or Zsh. It works
+across all major Open Source implementations (FreeBSD / Linux / Cygwin).
+
+When you run the setup script, it just creates the filesystem layout it
+needs. If you later switch your shell from Bash to Zsh or vice versa,
+the layout ensures that your new shell works just as the prior one.
+
+When you use switchBashZsh the first time (to create your master shell
+environment), the major facilities are the aliases A (edit your aliases)
+and AA (insert your aliases into the shell environment). Aliases are
+stored under ~/.shell/aliases.
+
+Similar hacks exist for exports (E/EE), functions (F/FF), commands
+to auto-execute on login, a.k.a. 'uponlogin' (I/II) and commands
+to auto-execute on logout, a.k.a. 'uponlogout' (O/OO).
+
+The first time you use switchBashZsh, you have to do the hard work in
+setting up your complete shell environment. But once you have done the
+hard work, you can get the same environment every time in future with
+very little effort - just run switchBashZsh setup script, and copy over
+your master ~/.shell directory (or maybe even modify the switchBashZsh
+script).
+
+It is nice to know a bit about the layout utilized by switchBashZsh.
+
+~/.bashrc is hard-linked as ~/.bash_profile
+.br
+~/.zshrc and ~/.bashrc source a common file ~/.shellrc
+
+When using switchBashZsh, do not modify .bashrc / .bash_profile / .zshrc
+yourself. Instead, modify the tree under ~/.shell  (see below).
+
+~/.shellrc uses the following tree in which the symbolic links
+level_2 and level_3 get populated dynamically at the time of login.
+(Linux systems use level_2 & level_3. FreeBSD/Cygwin use level_2 only.)
+
+~/.shell
+.br
+|-- aliases
+.br
+|-- exports
+.br
+|-- functions
+.br
+|-- uponlogin
+.br
+|-- uponlogout
+.br
+|-- level_1.all
+.br
+|-- level_2			->	?
+.br
+|-- level_2.cygwin
+.br
+|-- level_2.freebsd
+.br
+|-- level_2.linux
+.br
+|-- level_3			->	?
+.br
+|-- level_3.arch
+.br
+|-- level_3.debian
+.br
+|-- level_3.redhat
+
+The following utility aliases are available in a switchBashZsh
+installation:
+
+alias editor="$EDITOR"
+.br
+alias A="editor ~/.shell/aliases"
+.br
+alias AA=". ~/.shell/aliases"
+.br
+alias E="editor ~/.shell/exports"
+.br
+alias EE=". ~/.shell/exports"
+.br
+alias F="editor ~/.shell/functions"
+.br
+alias FF=". ~/.shell/functions"
+.br
+alias I="editor ~/.shell/uponlogin"
+.br
+alias II=". ~/.shell/uponlogin"
+.br
+alias O="editor ~/.shell/uponlogout"
+.br
+alias OO=". ~/.shell/uponlogout"
+.br
+alias L1="editor ~/.shell/level_1.all"
+.br
+alias L2="editor ~/.shell/level_2"
+.br
+alias L3="editor ~/.shell/level_3"     # only for Linux
+
+While it should not be difficult to commit all the above hacks to
+memory, at least remember the three most important ones:
+
+A         	Edit portable aliases
+.br
+AA        	Insert portable aliases into the shell environment
+.br
+L2        	Edit OS-specific definitions (aliases/exports/functions)
+
+When using switchBashZsh, remember that something is considered
+implementation-independent (and thus fully portable) if it works the
+same across FreeBSD / Linux / Cygwin. <alias su="su - toor"> is a
+FreeBSD implementation-dependent alias because it won't work on Cygwin
+and Linux, where the toor user does not exist.
+
+With the above in mind :
+
+1)	Put commands to be auto-executed upon login in ~/.shell/uponlogin
+and commands to be auto-executed upon logout in ~/.shell/uponlogout
+.br
+2)	Put all OS-independent aliases in ~/.shell/aliases
+.br
+3)	Put all OS-independent exports in ~/.shell/exports
+.br
+4)	Put all OS-independent functions in ~/.shell/functions
+.br
+5)	Place all OS-dependent definitions ~/.shell/level_2
+
+If you have any definition that depends not just on the OS but
+further on its flavours, place it under ~/.shell/level_3. So if
+you are on a Linux box and are working with a definition that is
+distro-dependent (eg: an alias to <list all installed packages>),
+place the definition under ~/.shell/level_3, not ~/.shell/level_2.
+~/.shell/level_2 is reserved for stuff that works on the OS
+without concern for its flavours.
+
+.SH OPTIONS
+--editor <path> can be used to preset <path> as the preferred editor.
+
+--bare can be used to force a minimalist setup, devoid of any sample
+goodies pre-packaged under [~/.shell/] aliases|exports|functions
+
+.SH SEE ALSO
+env(1)
+
+Running the bare command `alias` displays all aliases active.
+.br
+`man alias` should work too, but is currently unusable because
+it redirects as a shell built-in.
+
+.SH BUGS/LIMITATIONS
+1) Default (level_3) yum alias definitions are CentOS-based and may
+not always work out-of-the-box under RedHat distributions. If so,
+just use L3 to edit those aliases.
+
+
+.SH AUTHOR
+Manish Jain (bourne.identity@hotmail.com)
