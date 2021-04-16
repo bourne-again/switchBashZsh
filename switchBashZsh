@@ -1,10 +1,7 @@
 #!/bin/sh
 
-zksh=false
 editor=vim
-
-b_editor=false
-b_bare=false
+b_zksh=false
 
 die()
 {
@@ -18,34 +15,6 @@ die()
 	exit 1
 }
 
-while [ $# -gt 0 ]; do
-	case "$1" in
-		--bare)
-			shift
-			b_bare=true
-		;;
-
-		--editor)
-			shift
-			editor=""
-			[ $# -gt 0 ] || die $LINENO 'Missing filepath: $editor'
-			editor="$1"
-			b_editor=true
-			shift
-		;;
-
-		--help)
-			shift
-			man switchBashZsh
-			exit 0
-		;;
-
-		*)
-			die $LINENO "Invalid arg : $1"
-		;;
-	esac
-done
-
 cd $HOME || die $LINENO '`cd $HOME` failed. Aborting  : - ('
 
 echo 'I shall delete 3 globs under your $HOME :  .bash* .zsh* .shell*'
@@ -56,28 +25,27 @@ rm -rf .bash* .zsh* .shell*
 
 ok=false
 
-if [ $b_editor = false ]; then
-	while [ $ok = false ]; do
-		echo "I am using $editor as your preferred text editor"
-		echo "Is that okay with you ? (y/n):"
+while [ $ok = false ]; do
+	echo "I am using $editor as your preferred text editor"
+	echo "Is that okay with you ? (y/n):"
 
-		read answer
-		case "$answer" in
-			y|Y|yes)
-				ok=true
-			;;
+	read answer
 
-			n|N|no)
-				echo "Enter the command to use as editor"
-				read editor
-			;;
+	case "$answer" in
+		y|Y|yes)
+			ok=true
+		;;
 
-			*)
-				die $LINENO 'I could not make any sense of that. Aborting  : - ('
-			;;
-		esac
-	done
-fi
+		n|N|no)
+			echo "Enter the command to use as editor"
+			read editor
+		;;
+
+		*)
+			die $LINENO 'I could not make any sense of that. Aborting  : - ('
+		;;
+	esac
+done
 
 [ -z "$editor" ] && die $LINENO '$editor is null. Aborting  : - ('
 
@@ -89,11 +57,11 @@ echo "Would you like your Z to begin arrays at 0 (Bash-like) ? (y/n):"
 read answer
 case "$answer" in
 	y|Y|yes)
-		zksh=true
+		b_zksh=true
 	;;
 
 	n|N|no)
-		zksh=false
+		b_zksh=false
 	;;
 
 	*)
@@ -106,7 +74,6 @@ clear
 mkdir .shell
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF_aliases'
 # This file is meant for implementation-independent aliases.
 # Put OS-specific aliases (eg: ls) in level_2
@@ -116,58 +83,34 @@ alias p="cd .."
 alias p2="cd ../.."
 alias rf="rm -rf"
 alias e="cd /etc"
+alias v=vim
 
 #< Above this line is what was pre-packaged. Below is the user section >
 
 EOF_aliases
-else
-cat << 'EOF_aliases_bare'
-# This file is meant for implementation-independent aliases.
-# Put OS-specific aliases (eg: ls) in level_2
-
-EOF_aliases_bare
-fi
 } > .shell/aliases
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF_exports'
 # This file is meant for implementation-independent exports.
 # Put OS-specific exports in level_2
 
 export PATH=$PATH:$HOME/bin
 export DISPLAY=:0
-export EDITOR=$editor
 
 #< Above this line is what was pre-packaged. Below is the user section >
 
 EOF_exports
-else
-cat << 'EOF_exports_bare'
-# This file is meant for implementation-independent exports.
-# Put OS-specific exports in level_2
-
-EOF_exports_bare
-fi
 } > .shell/exports
 
+echo "export EDITOR=$editor" >> .shell/exports
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF_functions'
 # This file is meant for implementation-independent functions.
 # Put OS-specific functions in level_2
 
-#< Above this line is what was pre-packaged. Below is the user section >
-
 EOF_functions
-else
-cat << 'EOF_functions_bare'
-# This file is meant for implementation-independent functions.
-# Put OS-specific functions in level_2
-
-EOF_functions_bare
-fi
 } > .shell/functions
 
 echo > .shell/uponlogin
@@ -188,7 +131,7 @@ EOF_bash
 ln .bashrc .bash_profile
 
 > .zshrc
-[ $zksh = true ] && echo "setopt KSH_ARRAYS" >> .zshrc
+[ $b_zksh = true ] && echo "setopt KSH_ARRAYS" >> .zshrc
 
 {
 cat << 'EOF_zsh'
@@ -286,7 +229,6 @@ EOF1_all
 } >> .shell/level_1.all
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF2_freebsd'
 # This file is meant for FreeBSD-specific definitions.
 # Put implementation-independent definitions in the files
@@ -297,40 +239,23 @@ alias pfind="pkg search"
 alias pin="pkg install"
 alias pls="pkg query %n"
 alias pig="pkg query %n | grep -i"
+alias u="/usr/libexec/locate.updatedb"
 
 # Restart your terminal to have changes to this file take effect #
 EOF2_freebsd
-else
-cat << 'EOF2_freebsd_bare'
-# This file is meant for FreeBSD-specific definitions.
-# Put implementation-independent definitions in the files
-# [$HOME/.shell/]aliases|exports|functions
-
-# Restart your terminal to have changes to this file take effect #
-EOF2_freebsd_bare
-fi
 } > .shell/level_2.freebsd
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF2_cygwin'
 # This file is meant for Cygwin-specific definitions.
 # Put implementation-independent definitions in the files
 # [$HOME/.shell/]aliases|exports|functions
 
 alias ls="ls --color=auto"
+alias u="updatedb"
 
 # Restart your terminal to have changes to this file take effect #
 EOF2_cygwin
-else
-cat << 'EOF2_cygwin_bare'
-# This file is meant for Cygwin-specific definitions.
-# Put implementation-independent definitions in the files
-# [$HOME/.shell/]aliases|exports|functions
-
-# Restart your terminal to have changes to this file take effect #
-EOF2_cygwin_bare
-fi
 } > .shell/level_2.cygwin
 
 {
@@ -341,6 +266,7 @@ cat << 'EOF2_linux'
 
 # <distro-independent-definitions>
 alias ls="ls --color=auto"
+alias u="updatedb"
 alias L3="editor ~/.shell/level_3"
 # </distro-independent-definitions>
 
@@ -387,7 +313,6 @@ EOF2_linux
 } > .shell/level_2.linux
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF3_arch'
 alias pfind="pacman -Ss"
 alias pin="pacman -S"
@@ -396,16 +321,9 @@ alias pig="pacman --query | grep -i"
 
 # Restart your terminal to have changes to this file take effect #
 EOF3_arch
-else
-cat << 'EOF3_arch_bare'
-
-# Restart your terminal to have changes to this file take effect #
-EOF3_arch_bare
-fi
 } > .shell/level_3.arch
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF3_debian'
 alias pfind="apt search"
 alias pin="apt install"
@@ -414,16 +332,9 @@ alias pig="apt list --installed | grep -i"
 
 # Restart your terminal to have changes to this file take effect #
 EOF3_debian
-else
-cat << 'EOF3_debian_bare'
-
-# Restart your terminal to have changes to this file take effect #
-EOF3_debian_bare
-fi
 } > .shell/level_3.debian
 
 {
-if [ $b_bare = false ]; then
 cat << 'EOF3_redhat'
 alias pfind="yum search"
 alias pin="yum install"
@@ -432,12 +343,6 @@ alias pig="yum list installed | grep -i"
 
 # Restart your terminal to have changes to this file take effect #
 EOF3_redhat
-else
-cat << 'EOF3_redhat_bare'
-
-# Restart your terminal to have changes to this file take effect #
-EOF3_redhat_bare
-fi
 } > .shell/level_3.redhat
 
 set +e
@@ -464,8 +369,8 @@ Linux boxes have an extra alias (under $HOME/.shell/level_2.linux) :
 
 alias L3="editor ~/.shell/level_3"
 
-If your installation was not bare, some sample goodies would also
-be available in [~/.shell/] aliases|exports|functions
+Some sample goodies would also be available in
+[~/.shell/] aliases|exports|functions
 
 switchBashZsh shell initialization layout created successfully.
 To have it take effect, logout and login again (or restart terminal).
